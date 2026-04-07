@@ -217,6 +217,10 @@ The goal: Be helpful without being annoying. Check in a few times a day, do usef
 - 默认顺序：**改配置 → doctor check → 再决定是否重启 gateway**。
 - 如果 doctor check 有报错/高风险项，先处理或向用户说明，再进行重启。
 - 以后凡是用户提到 **“之前记录过 / SI / 查记忆 / 查记录”**，除了常规记忆检索外，还要**主动检查** `~/.openclaw/memory/self-improving/` 下的相关 `jsonl` 记录（如 `errors.jsonl`、`corrections.jsonl`、`best_practices.jsonl`）。
+- 以后当用户明确说 **“记入SI”** 时，表示需要把该内容记录到 self-improving 的对应 `jsonl` 中：
+  - 错误/踩坑/失败经验 → `errors.jsonl`
+  - 用户纠正/偏好/规则修正 → `corrections.jsonl`
+  - 最佳实践/流程规范/更优方法 → `best_practices.jsonl`
 
 ## Make It Yours
 
