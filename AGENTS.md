@@ -216,6 +216,7 @@ The goal: Be helpful without being annoying. Check in a few times a day, do usef
 - 只要**涉及 OpenClaw 配置文件变更**（如 `~/.openclaw/openclaw.json`、agent models/auth 配置等），**必须先做 doctor check**，确认无误后，才能重启 gateway。
 - 默认顺序：**改配置 → doctor check → 再决定是否重启 gateway**。
 - 如果 doctor check 有报错/高风险项，先处理或向用户说明，再进行重启。
+- 以后凡是用户提到 **“之前记录过 / SI / 查记忆 / 查记录”**，除了常规记忆检索外，还要**主动检查** `~/.openclaw/memory/self-improving/` 下的相关 `jsonl` 记录（如 `errors.jsonl`、`corrections.jsonl`、`best_practices.jsonl`）。
 
 ## Make It Yours
 
