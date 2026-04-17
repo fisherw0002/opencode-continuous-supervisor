@@ -12,12 +12,25 @@ ARTIFACTS = Path("/root/.openclaw/workspace/playwright-python/artifacts/hidenclo
 LOG = ARTIFACTS / "run.log"
 EPHY_BIN = "/usr/bin/epiphany-browser"
 DISPLAY = ":1"
-# 基于你给的页面图做的当前坐标估计
+# 基于当前页面估算坐标，可继续微调
 RENEW_X = 1058
 RENEW_Y = 367
-POST_CLICK_WAIT = 5
-PAGE_SETTLE_WAIT = 16
-MODAL_WAIT = 4
+POST_CLICK_WAIT = 2
+STATE_TIMEOUT = 40
+POLL_INTERVAL = 1
+
+READY_NEEDLES = [
+    'Free Server #207229',
+    'Due date',
+    'Renew',
+    'Delete',
+    '20 Apr 2026',
+]
+RESTRICT_NEEDLES = [
+    'Renewal Restricted',
+    'less than 1 day left',
+    'expires in',
+]
 
 
 def log(msg: str):
@@ -62,6 +75,22 @@ def current_session_state() -> str:
     return ''
 
 
+def contains_all(needles: list[str]) -> bool:
+    text = current_session_state()
+    return all(n in text for n in needles)
+
+
+def wait_for_state(needles: list[str], timeout: int, label: str) -> bool:
+    start = time.time()
+    while time.time() - start < timeout:
+        if contains_all(needles):
+            log(f'state_ready={label}')
+            return True
+        time.sleep(POLL_INTERVAL)
+    log(f'state_timeout={label}')
+    return False
+
+
 def due_present_in_session() -> bool:
     text = current_session_state()
     return EXPECTED_DUE in text and 'dash.hidencloud.com/service/207229/manage' in text
@@ -76,8 +105,6 @@ def launch_browser():
     run("pkill -f 'epiphany-browser' || true")
     time.sleep(1)
     run(f"export DISPLAY={DISPLAY}; nohup {EPHY_BIN} --new-window '{TARGET_URL}' >/root/.openclaw/workspace/playwright-python/vnc/epiphany-renew.log 2>&1 &")
-    # 第一张要等进度条刷完、目标画面稳定后再截
-    time.sleep(PAGE_SETTLE_WAIT)
 
 
 def focus_epiphany_window():
@@ -113,7 +140,8 @@ def main():
     log(f'start hidencloud renew once job force={force}')
     launch_browser()
 
-    # 图1：等页面稳定、看到目标画面后再截
+    # 图1：等待目标页稳定可见再截
+    wait_for_state(READY_NEEDLES, STATE_TIMEOUT, 'target_page_ready')
     target_img = screenshot('01-target-page.png')
     log(f'target_page_screenshot={target_img}')
 
@@ -131,8 +159,8 @@ def main():
     # 点击 Renew
     click_renew()
 
-    # 图3：等弹窗出来后再截
-    time.sleep(MODAL_WAIT)
+    # 图3：等弹窗关键词出现后再截；演练模式若等不到也要落图
+    wait_for_state(RESTRICT_NEEDLES, 12, 'renew_restriction_modal')
     after_img = screenshot('03-after-renew-click.png')
     log(f'after_renew_click_screenshot={after_img}')
 
