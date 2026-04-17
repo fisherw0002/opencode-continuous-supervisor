@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 import subprocess
+import sys
 import time
 
 TARGET_URL = "https://dash.hidencloud.com/service/207229/manage"
@@ -11,7 +12,7 @@ ARTIFACTS = Path("/root/.openclaw/workspace/playwright-python/artifacts/hidenclo
 LOG = ARTIFACTS / "run.log"
 EPHY_BIN = "/usr/bin/epiphany-browser"
 DISPLAY = ":1"
-# 这组坐标基于当前 1440x900 桌面，后续可微调
+# 当前桌面 1440x900 的预估坐标；后续可继续微调
 RENEW_X = 1220
 RENEW_Y = 370
 POST_CLICK_WAIT = 6
@@ -99,13 +100,16 @@ def click_renew():
 
 def main():
     ensure_dirs()
-    log('start hidencloud renew once job')
+    force = '--force' in sys.argv
+    log(f'start hidencloud renew once job force={force}')
     launch_browser()
 
     target_img = screenshot('01-target-page.png')
     log(f'target_page_screenshot={target_img}')
 
-    if not due_present_in_session():
+    due_ok = due_present_in_session()
+    log(f'due_guard_passed={due_ok}')
+    if not due_ok and not force:
         log(f'status=abort_due_mismatch expected_due={EXPECTED_DUE}')
         return
 
