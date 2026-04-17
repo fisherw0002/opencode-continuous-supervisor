@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-import re
 import subprocess
 import time
 
@@ -10,9 +9,12 @@ TARGET_URL = "https://dash.hidencloud.com/service/207229/manage"
 EXPECTED_DUE = "20 Apr 2026"
 ARTIFACTS = Path("/root/.openclaw/workspace/playwright-python/artifacts/hidencloud-renew-2026-04-19")
 LOG = ARTIFACTS / "run.log"
-
 EPHY_BIN = "/usr/bin/epiphany-browser"
 DISPLAY = ":1"
+# 这组坐标基于当前 1440x900 桌面，后续可微调
+RENEW_X = 1220
+RENEW_Y = 370
+POST_CLICK_WAIT = 6
 
 
 def log(msg: str):
@@ -35,22 +37,26 @@ def run(cmd: str, check: bool = False):
     return p
 
 
-def screenshot(name: str):
-    path = ARTIFACTS / name
-    run(f"export DISPLAY={DISPLAY}; gnome-screenshot -f '{path}'", check=True)
-    return path
-
-
 def ensure_dirs():
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
     LOG.touch(exist_ok=True)
 
 
+def screenshot(name: str):
+    path = ARTIFACTS / name
+    run(f"export DISPLAY={DISPLAY}; scrot '{path}'", check=True)
+    return path
+
+
 def current_session_state() -> str:
-    p = Path('/root/.local/share/epiphany/session_state.xml')
-    if not p.exists():
-        return ''
-    return p.read_text(encoding='utf-8', errors='ignore')
+    candidates = [
+        Path('/root/.local/share/epiphany/session_state.xml'),
+        Path('/root/.local/share/ephy/session_state.xml'),
+    ]
+    for p in candidates:
+        if p.exists():
+            return p.read_text(encoding='utf-8', errors='ignore')
+    return ''
 
 
 def due_present_in_session() -> bool:
@@ -58,14 +64,8 @@ def due_present_in_session() -> bool:
     return EXPECTED_DUE in text and 'dash.hidencloud.com/service/207229/manage' in text
 
 
-def restriction_present_in_session() -> bool:
-    text = current_session_state().lower()
-    return 'renewal restricted' in text or 'less than 1 day left' in text
-
-
 def due_advanced_in_session() -> bool:
     text = current_session_state()
-    # 成功后至少不应再是 20 Apr 2026；先做最稳的弱判断
     return ('dash.hidencloud.com/service/207229/manage' in text) and (EXPECTED_DUE not in text)
 
 
@@ -73,33 +73,56 @@ def launch_browser():
     run("pkill -f 'epiphany-browser' || true")
     time.sleep(1)
     run(f"export DISPLAY={DISPLAY}; nohup {EPHY_BIN} --new-window '{TARGET_URL}' >/root/.openclaw/workspace/playwright-python/vnc/epiphany-renew.log 2>&1 &")
-    time.sleep(8)
+    time.sleep(10)
+
+
+def focus_epiphany_window():
+    p = run(f"export DISPLAY={DISPLAY}; wmctrl -lx")
+    lines = p.stdout.splitlines() if p.stdout else []
+    win_id = None
+    for line in lines:
+        if 'epiphany' in line.lower() or 'org.gnome.epiphany' in line.lower():
+            win_id = line.split()[0]
+            break
+    if not win_id:
+        raise RuntimeError('epiphany window not found')
+    run(f"export DISPLAY={DISPLAY}; wmctrl -ia {win_id}", check=True)
+    time.sleep(1)
+    return win_id
+
+
+def click_renew():
+    focus_epiphany_window()
+    run(f"export DISPLAY={DISPLAY}; xdotool mousemove {RENEW_X} {RENEW_Y} click 1", check=True)
+    time.sleep(POST_CLICK_WAIT)
 
 
 def main():
     ensure_dirs()
     log('start hidencloud renew once job')
-
     launch_browser()
-    before_img = screenshot('01-before.png')
-    log(f'before_screenshot={before_img}')
+
+    target_img = screenshot('01-target-page.png')
+    log(f'target_page_screenshot={target_img}')
 
     if not due_present_in_session():
         log(f'status=abort_due_mismatch expected_due={EXPECTED_DUE}')
         return
 
-    # 这里先不盲点，留出人工/后续接入 xdotool 的位置
-    # 当前交付目标：4/19 当天自动打开、截图、守门、给出是否进入可点击窗口
-    if restriction_present_in_session():
-        log('status=page_already_shows_restriction_or_modal')
+    before_img = screenshot('02-before-renew.png')
+    log(f'before_renew_screenshot={before_img}')
 
-    after_guard_img = screenshot('02-after-guard.png')
-    log(f'guard_screenshot={after_guard_img}')
+    click_renew()
+
+    after_img = screenshot('03-after-renew-click.png')
+    log(f'after_renew_click_screenshot={after_img}')
 
     if due_advanced_in_session():
         log('status=renew_success_inferred')
     else:
-        log('status=ready_for_manual_or_next_click_step')
+        log('status=renew_result_unknown_or_not_yet_changed')
+
+    log('done')
 
 
 if __name__ == '__main__':
