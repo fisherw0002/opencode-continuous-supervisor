@@ -50,24 +50,51 @@ def main():
 
     lines = [line for line in output.splitlines() if line.strip()]
     tail = '\n'.join(lines[-60:])
-    invalid_cookie = any(x in output for x in [
-        '登录失败',
-        '未登录',
-        '失效',
-        '请重新登录',
-        'cookie',
-    ]) and p.returncode != 0
+
+    lowered = output.lower()
+    invalid_cookie = (
+        any(x in output for x in ['登录失败', '未登录', '请重新登录'])
+        or ('cookie' in lowered and ('失效' in output or 'invalid' in lowered or 'expired' in lowered))
+    )
+    renewed = ('续期成功' in output) or ('renew success' in lowered)
+    logged_in = '登录成功' in output
+    target_seen = '处理服务 ID: 207229' in output
+    not_due = ('未到续期时间' in output) or ('低于' in output and '1 天' in output) or ('days_until=' in lowered and 'threshold=' in lowered)
+
+    if invalid_cookie:
+        status = 'COOKIE_INVALID'
+        action_needed = 'cookie 可能失效，需要你手动走一次 VNC 登录，然后运行 reseed_cookie_from_vnc.sh 重新播种。'
+    elif renewed:
+        status = 'RENEWED'
+        action_needed = 'none'
+    elif logged_in and target_seen and not_due:
+        status = 'NOT_DUE'
+        action_needed = 'none'
+    elif logged_in and target_seen:
+        status = 'OK'
+        action_needed = 'none'
+    else:
+        status = 'ERROR'
+        action_needed = 'check recent_output and full_log'
 
     summary = [
         f'time: {ts}',
+        f'status: {status}',
         f'exit_code: {p.returncode}',
         f'cookie_cache_file: {CACHE_FILE}',
         f'cookie_cache_exists: {CACHE_FILE.exists()}',
         '',
+        'signals:',
+        f'- logged_in: {logged_in}',
+        f'- target_service_seen: {target_seen}',
+        f'- renewed: {renewed}',
+        f'- not_due: {not_due}',
+        f'- invalid_cookie: {invalid_cookie}',
+        '',
         'recent_output:',
         tail,
         '',
-        ('action_needed: cookie 可能失效，需要你手动走一次 VNC 登录，然后运行 export_epiphany_hiden_cookie.py 重新播种。' if invalid_cookie else 'action_needed: none'),
+        f'action_needed: {action_needed}',
         '',
         f'full_log: {RUN_LOG}',
     ]
