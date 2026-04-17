@@ -59,7 +59,13 @@ def main():
     renewed = ('续期成功' in output) or ('renew success' in lowered)
     logged_in = '登录成功' in output
     target_seen = '处理服务 ID: 207229' in output
-    not_due = ('未到续期时间' in output) or ('低于' in output and '1 天' in output) or ('days_until=' in lowered and 'threshold=' in lowered)
+    not_due = (
+        ('未到续期时间' in output)
+        or ('暂未到达续期时间' in output)
+        or ('当前剩余' in output and '天' in output)
+        or ('低于' in output and '1 天' in output)
+        or ('days_until=' in lowered and 'threshold=' in lowered)
+    )
 
     if invalid_cookie:
         status = 'COOKIE_INVALID'
