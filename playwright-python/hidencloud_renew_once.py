@@ -12,10 +12,12 @@ ARTIFACTS = Path("/root/.openclaw/workspace/playwright-python/artifacts/hidenclo
 LOG = ARTIFACTS / "run.log"
 EPHY_BIN = "/usr/bin/epiphany-browser"
 DISPLAY = ":1"
-# 当前桌面 1440x900 的预估坐标；后续可继续微调
-RENEW_X = 1220
-RENEW_Y = 370
-POST_CLICK_WAIT = 6
+# 基于你给的页面图做的当前坐标估计
+RENEW_X = 1058
+RENEW_Y = 367
+POST_CLICK_WAIT = 5
+PAGE_SETTLE_WAIT = 16
+MODAL_WAIT = 4
 
 
 def log(msg: str):
@@ -74,7 +76,8 @@ def launch_browser():
     run("pkill -f 'epiphany-browser' || true")
     time.sleep(1)
     run(f"export DISPLAY={DISPLAY}; nohup {EPHY_BIN} --new-window '{TARGET_URL}' >/root/.openclaw/workspace/playwright-python/vnc/epiphany-renew.log 2>&1 &")
-    time.sleep(10)
+    # 第一张要等进度条刷完、目标画面稳定后再截
+    time.sleep(PAGE_SETTLE_WAIT)
 
 
 def focus_epiphany_window():
@@ -92,6 +95,12 @@ def focus_epiphany_window():
     return win_id
 
 
+def move_mouse_to_renew_only():
+    focus_epiphany_window()
+    run(f"export DISPLAY={DISPLAY}; xdotool mousemove {RENEW_X} {RENEW_Y}", check=True)
+    time.sleep(1)
+
+
 def click_renew():
     focus_epiphany_window()
     run(f"export DISPLAY={DISPLAY}; xdotool mousemove {RENEW_X} {RENEW_Y} click 1", check=True)
@@ -104,6 +113,7 @@ def main():
     log(f'start hidencloud renew once job force={force}')
     launch_browser()
 
+    # 图1：等页面稳定、看到目标画面后再截
     target_img = screenshot('01-target-page.png')
     log(f'target_page_screenshot={target_img}')
 
@@ -113,11 +123,16 @@ def main():
         log(f'status=abort_due_mismatch expected_due={EXPECTED_DUE}')
         return
 
+    # 图2：鼠标停在 Renew 上再截
+    move_mouse_to_renew_only()
     before_img = screenshot('02-before-renew.png')
     log(f'before_renew_screenshot={before_img}')
 
+    # 点击 Renew
     click_renew()
 
+    # 图3：等弹窗出来后再截
+    time.sleep(MODAL_WAIT)
     after_img = screenshot('03-after-renew-click.png')
     log(f'after_renew_click_screenshot={after_img}')
 
