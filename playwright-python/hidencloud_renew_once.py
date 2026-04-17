@@ -7,29 +7,27 @@ import sys
 import time
 
 TARGET_URL = "https://dash.hidencloud.com/service/207229/manage"
-EXPECTED_DUE = "20 Apr 2026"
 ARTIFACTS = Path("/root/.openclaw/workspace/playwright-python/artifacts/hidencloud-renew-2026-04-19")
 LOG = ARTIFACTS / "run.log"
 EPHY_BIN = "/usr/bin/epiphany-browser"
 DISPLAY = ":1"
-# 基于当前页面估算坐标，可继续微调
+TMP_SHOT = ARTIFACTS / ".tmp-screen.png"
+TMP_TXT = ARTIFACTS / ".tmp-ocr"
+
 RENEW_X = 1058
 RENEW_Y = 367
-POST_CLICK_WAIT = 2
-STATE_TIMEOUT = 40
-POLL_INTERVAL = 1
+STATE_TIMEOUT = 180
+POLL_INTERVAL = 3
 
-READY_NEEDLES = [
+PAGE_READY_NEEDLES = [
     'Free Server #207229',
     'Due date',
     'Renew',
     'Delete',
-    '20 Apr 2026',
 ]
-RESTRICT_NEEDLES = [
+POPUP_NEEDLES = [
     'Renewal Restricted',
     'less than 1 day left',
-    'expires in',
 ]
 
 
@@ -64,74 +62,66 @@ def screenshot(name: str):
     return path
 
 
-def current_session_state() -> str:
-    candidates = [
-        Path('/root/.local/share/epiphany/session_state.xml'),
-        Path('/root/.local/share/ephy/session_state.xml'),
-    ]
-    for p in candidates:
-        if p.exists():
-            return p.read_text(encoding='utf-8', errors='ignore')
+def ocr_screen_text() -> str:
+    run(f"export DISPLAY={DISPLAY}; scrot '{TMP_SHOT}'", check=True)
+    run(f"tesseract '{TMP_SHOT}' '{TMP_TXT}' >/dev/null 2>&1", check=True)
+    txt_path = TMP_TXT.with_suffix('.txt')
+    if txt_path.exists():
+        return txt_path.read_text(encoding='utf-8', errors='ignore')
     return ''
 
 
-def contains_all(needles: list[str]) -> bool:
-    text = current_session_state()
-    return all(n in text for n in needles)
-
-
-def wait_for_state(needles: list[str], timeout: int, label: str) -> bool:
+def wait_for_ocr(needles: list[str], timeout: int, label: str) -> bool:
     start = time.time()
     while time.time() - start < timeout:
-        if contains_all(needles):
-            log(f'state_ready={label}')
+        text = ocr_screen_text()
+        if all(n.lower() in text.lower() for n in needles):
+            log(f'ocr_ready={label}')
             return True
         time.sleep(POLL_INTERVAL)
-    log(f'state_timeout={label}')
+    log(f'ocr_timeout={label}')
     return False
-
-
-def due_present_in_session() -> bool:
-    text = current_session_state()
-    return EXPECTED_DUE in text and 'dash.hidencloud.com/service/207229/manage' in text
-
-
-def due_advanced_in_session() -> bool:
-    text = current_session_state()
-    return ('dash.hidencloud.com/service/207229/manage' in text) and (EXPECTED_DUE not in text)
 
 
 def launch_browser():
     run("pkill -f 'epiphany-browser' || true")
     time.sleep(1)
     run(f"export DISPLAY={DISPLAY}; nohup {EPHY_BIN} --new-window '{TARGET_URL}' >/root/.openclaw/workspace/playwright-python/vnc/epiphany-renew.log 2>&1 &")
+    time.sleep(3)
 
 
-def focus_epiphany_window():
+def focus_service_window():
     p = run(f"export DISPLAY={DISPLAY}; wmctrl -lx")
     lines = p.stdout.splitlines() if p.stdout else []
-    win_id = None
+    chosen = None
     for line in lines:
-        if 'epiphany' in line.lower() or 'org.gnome.epiphany' in line.lower():
-            win_id = line.split()[0]
+        low = line.lower()
+        if 'epiphany' in low and 'services - hidencloud' in low:
+            chosen = line.split()[0]
             break
-    if not win_id:
-        raise RuntimeError('epiphany window not found')
-    run(f"export DISPLAY={DISPLAY}; wmctrl -ia {win_id}", check=True)
+    if not chosen:
+        for line in lines:
+            low = line.lower()
+            if 'epiphany' in low and 'hidencloud' in low and 'new tab' not in low:
+                chosen = line.split()[0]
+                break
+    if not chosen:
+        raise RuntimeError('service window not found')
+    run(f"export DISPLAY={DISPLAY}; wmctrl -ia {chosen}", check=True)
     time.sleep(1)
-    return win_id
+    return chosen
 
 
 def move_mouse_to_renew_only():
-    focus_epiphany_window()
+    focus_service_window()
     run(f"export DISPLAY={DISPLAY}; xdotool mousemove {RENEW_X} {RENEW_Y}", check=True)
     time.sleep(1)
 
 
 def click_renew():
-    focus_epiphany_window()
+    focus_service_window()
     run(f"export DISPLAY={DISPLAY}; xdotool mousemove {RENEW_X} {RENEW_Y} click 1", check=True)
-    time.sleep(POST_CLICK_WAIT)
+    time.sleep(1)
 
 
 def main():
@@ -140,34 +130,16 @@ def main():
     log(f'start hidencloud renew once job force={force}')
     launch_browser()
 
-    # 图1：等待目标页稳定可见再截
-    wait_for_state(READY_NEEDLES, STATE_TIMEOUT, 'target_page_ready')
-    target_img = screenshot('01-target-page.png')
-    log(f'target_page_screenshot={target_img}')
+    focus_service_window()
+    wait_for_ocr(PAGE_READY_NEEDLES, STATE_TIMEOUT, 'target_page_ready')
+    screenshot('01-target-page.png')
 
-    due_ok = due_present_in_session()
-    log(f'due_guard_passed={due_ok}')
-    if not due_ok and not force:
-        log(f'status=abort_due_mismatch expected_due={EXPECTED_DUE}')
-        return
-
-    # 图2：鼠标停在 Renew 上再截
     move_mouse_to_renew_only()
-    before_img = screenshot('02-before-renew.png')
-    log(f'before_renew_screenshot={before_img}')
+    screenshot('02-before-renew.png')
 
-    # 点击 Renew
     click_renew()
-
-    # 图3：等弹窗关键词出现后再截；演练模式若等不到也要落图
-    wait_for_state(RESTRICT_NEEDLES, 12, 'renew_restriction_modal')
-    after_img = screenshot('03-after-renew-click.png')
-    log(f'after_renew_click_screenshot={after_img}')
-
-    if due_advanced_in_session():
-        log('status=renew_success_inferred')
-    else:
-        log('status=renew_result_unknown_or_not_yet_changed')
+    wait_for_ocr(POPUP_NEEDLES, 30, 'renew_popup_ready')
+    screenshot('03-after-renew-click.png')
 
     log('done')
 
