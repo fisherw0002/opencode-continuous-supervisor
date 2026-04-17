@@ -1,0 +1,23 @@
+===== HidenCloud scheduled check @ 2026-04-18 02:02:24 =====
+[cookie_seed_file] /root/.openclaw/workspace/hidencloud-renew-local/.env.local
+[cookie_cache_file] /root/.openclaw/workspace/hidencloud-renew-local/hiden_cookies_US.json
+[cookie_cache_exists] True
+
+⚠️ 未配置 WebDAV，跳过云端同步
+
+=== HidenCloud 续期脚本启动 (Python版) ===
+[账号 1] 发现本地缓存 Cookie，优先使用...
+[账号 1] 正在验证登录状态...
+👀 [调试] 网页标题是: Dashboard - HidenCloud
+[账号 1] ✅ 登录成功，发现 1 个服务。
+💾 [账号 1] 本地缓存已更新
+[账号 1] >>> 处理服务 ID: 207229
+[账号 1] ⏳ 暂未到达续期时间: 免费服务剩余时间低于 1 day 才可续期。当前剩余: 3 天。
+💾 [账号 1] 本地缓存已更新
+
+----------------------------------------
+
+通知渠道 wxPusherBot 缺少必要配置，跳过推送：缺少 WXPUSHER_APP_TOKEN 或 WP_APP_TOKEN_ONE
+
+[exit_code] 0
+
