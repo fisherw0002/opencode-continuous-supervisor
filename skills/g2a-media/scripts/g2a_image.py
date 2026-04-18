@@ -2,8 +2,8 @@
 import os, json, base64, sys
 from urllib import request, error
 
-BASE = os.environ.get('G2A_BASE_URL', 'https://g2.fisht.cc.cd/v1')
-API_KEY = os.environ.get('G2A_API_KEY')
+BASE = os.environ.get("G2A_BASE_URL") or os.environ.get("G2AD_BASE_URL") or "http://127.0.0.1:8011/v1"
+API_KEY = os.environ.get("G2AD_API_KEY") or os.environ.get("G2A_API_KEY")
 if not API_KEY:
     print('NO_G2A_API_KEY', file=sys.stderr)
     sys.exit(2)

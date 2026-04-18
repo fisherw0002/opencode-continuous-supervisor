@@ -9,7 +9,7 @@ Use the bundled scripts to call G2A directly.
 
 ## Important current behavior
 
-- G2A is a Grok2API-style gateway at `https://g2.fisht.cc.cd/v1`.
+- G2A is a Grok2API-style gateway at `http://127.0.0.1:8011/v1`.
 - Current model routing is narrow:
   - image generation requires `grok-imagine-1.0`
   - image edit should use `grok-imagine-1.0-edit`
@@ -32,7 +32,7 @@ Run:
 
 Optional env:
 
-- `G2A_BASE_URL` default `https://g2.fisht.cc.cd/v1`
+- `G2A_BASE_URL` default `http://127.0.0.1:8011/v1`
 - `G2A_SIZE` default `1024x1024`
 - `G2A_IMAGE_MODEL` default `grok-imagine-1.0`
 
@@ -46,7 +46,7 @@ Run:
 
 Optional env:
 
-- `G2A_BASE_URL` default `https://g2.fisht.cc.cd/v1`
+- `G2A_BASE_URL` default `http://127.0.0.1:8011/v1`
 - `G2A_ASPECT` default `1:1`
 - `G2A_LEN` default `6`
 - `G2A_RES` default `HD`
