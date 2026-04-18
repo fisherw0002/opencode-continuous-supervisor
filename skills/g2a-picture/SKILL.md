@@ -19,4 +19,4 @@ Current behavior:
   - `grok-imagine-image`
   - `grok-imagine-1.0`
 
-Prefer sending the generated image as a real attachment, not a bare link.
+Prefer sending the generated image as a real attachment, not a bare link. If the script returns a local file path, attach that file in the same turn instead of sending a text-only confirmation.

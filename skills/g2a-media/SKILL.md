@@ -60,4 +60,6 @@ Optional env:
 ## Delivery
 
 - Prefer sending real image/video attachments back to the user.
+- **Critical:** when a G2A script returns a local file path (for example `/root/g2a_out/p_123.jpg` or `/root/g2a_out/v_123.mp4`), immediately attach that file in the same turn by reading the file path so the channel receives actual media. Do not send a text-only placeholder like “我把文件拿到手了” without attaching the file.
+- Do not rely on the user to refresh or infer that media exists; if the media was generated locally, attach it explicitly.
 - If generation fails, report the actual upstream error body rather than only the outer HTTP status.
