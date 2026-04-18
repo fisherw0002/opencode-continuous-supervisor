@@ -5,36 +5,30 @@ description: Generate an image via the user’s G2A OpenAI-compatible API (g2a.f
 
 # G2A Picture
 
-Generate an image via G2A's OpenAI-compatible API at `https://g2a.f2a.fisht.cc.cd/v1`.
+Generate an image via G2A's OpenAI-compatible API at `https://g2a.fisht.cc.cd/v1`.
 
 ## Usage
 
-```bash
-G2A_PROMPT="描述内容" python3 /root/.openclaw/workspace/skills/g2a-picture/scripts/g2a_picture.py
+Use the `image_generate` tool directly:
+
+```
+action: generate
+prompt: <描述>
+model: openai/grok-imagine-image-lite
+size: 1024x1024 (or 1024x1536, 1536x1024)
+aspectRatio: 1:1 (or 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9)
 ```
 
-## Optional env vars
+The `openai` provider is pre-configured to route to `https://g2a.fisht.cc.cd/v1` with the correct API key — no extra env vars needed.
 
-| Variable | Default | Description |
-|---|---|---|
-| `G2A_BASE_URL` | `https://g2a.fisht.cc.cd/v1` | API base URL |
-| `G2A_API_KEY` | _(required)_ | API key |
-| `G2A_SIZE` | `1024x1024` | Image size |
-| `G2A_IMAGE_MODEL` | auto-detected | Override image model |
+## Model
 
-## Model detection
+- Primary: `openai/grok-imagine-image-lite`
+- This is the only confirmed working image model on the current g2a service.
 
-The script queries `/v1/models` and picks the best available image model in this order:
+## Notes
 
-1. `grok-imagine-image-lite`
-2. `grok-imagine-image`
-3. `grok-imagine-1.0`
-4. Any other model with "image" in the ID (excluding "edit" and "video")
-
-If no image model is found, the script exits with `NO_G2A_IMAGE_MODEL_AVAILABLE`.
-
-## Delivery
-
-- Always attach the generated image file in the same turn as a real media attachment.
-- Do not send a text-only confirmation without attaching the file.
-- If generation fails, report the actual upstream error body.
+- Do **not** use the legacy `g2a_picture.py` script for image generation; use `image_generate` tool instead.
+- The script is retained only for backwards compatibility reference.
+- If `image_generate` fails, fall back to running the script directly and attach the resulting file.
+- Video generation is not available on the current g2a service.
