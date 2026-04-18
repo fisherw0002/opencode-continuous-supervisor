@@ -5,22 +5,32 @@ description: Generate and edit images plus generate videos through the user's Qw
 
 # q2a
 
-Use Qwen2API native endpoints instead of relying on OpenClaw's generic media provider wrappers.
+Use Qwen2API native endpoints, but prefer first-class OpenClaw media tools when they can return real media attachments cleanly.
 
 ## Quick path
 
-- For **text-to-image**, run:
-  - `python3 /root/.openclaw/workspace/skills/q2a/scripts/q2a_generate.py image --prompt '<prompt>' --size 1024x1536`
-- For **image edit**, run:
-  - `python3 /root/.openclaw/workspace/skills/q2a/scripts/q2a_generate.py edit --prompt '<prompt>' --image '/abs/path/to/image.png' --size 1024x1536`
-- For **text-to-video**, run:
-  - `python3 /root/.openclaw/workspace/skills/q2a/scripts/q2a_generate.py video --prompt '<prompt>' --size 1024x1792`
-- For **image-to-video**, run:
-  - `python3 /root/.openclaw/workspace/skills/q2a/scripts/q2a_generate.py video --prompt '<prompt>' --image '/abs/path/to/image.png' --size 1024x1792`
+### Images: prefer real image attachments
+
+For **text-to-image** and **image edit**, prefer the first-class `image_generate` tool so the user receives a real image attachment instead of a bare link.
+
+- Text-to-image model: `openai/Qwen3.6-Plus-image`
+- Image-edit model: `openai/Qwen3.6-Plus-image-edit`
+
+Only fall back to the script when the media tool path is unavailable or broken.
+
+Script fallback commands:
+- `python3 /root/.openclaw/workspace/skills/q2a/scripts/q2a_generate.py image --prompt '<prompt>' --size 1024x1536`
+- `python3 /root/.openclaw/workspace/skills/q2a/scripts/q2a_generate.py edit --prompt '<prompt>' --image '/abs/path/to/image.png' --size 1024x1536`
+
+### Videos
+
+For videos, use the native q2a script when reliability matters, especially for image-to-video:
+- `python3 /root/.openclaw/workspace/skills/q2a/scripts/q2a_generate.py video --prompt '<prompt>' --size 1024x1792`
+- `python3 /root/.openclaw/workspace/skills/q2a/scripts/q2a_generate.py video --prompt '<prompt>' --image '/abs/path/to/image.png' --size 1024x1792`
 
 The script prints JSON.
 
-- For image generation / edit, read `data[0].url` or `data[0].b64_json`.
+- For image generation / edit fallback, read `data[0].url` or `data[0].b64_json`.
 - For image-to-video, read top-level `url`.
 - For text-to-video, read the returned JSON `data[0].url`.
 
@@ -49,4 +59,8 @@ The script prints JSON.
 
 ## Delivery rule
 
-When the script returns a remote URL, reply with the media URL directly or use the proper first-class media tool only if it already supports that returned asset cleanly. Do not route the generation back through generic OpenClaw image/video wrappers once the native q2a path is chosen.
+- **Default user preference:** for images, send a real image message/attachment, not a bare link.
+- Therefore, for image generation and image edit, prefer `image_generate` with the q2a-backed OpenAI-compatible model refs so the channel receives an actual image artifact.
+- Only send a raw URL when there is no working attachment-capable path.
+- For video, prefer a true video attachment path when available; otherwise send the q2a result URL as a fallback and explain briefly.
+- Do not choose a bare-link reply for images when a real image attachment path works.
