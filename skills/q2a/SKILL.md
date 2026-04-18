@@ -1,6 +1,6 @@
 ---
 name: q2a
-description: Generate images and videos through the user's Qwen2API deployment. Use when the user asks to 生图, 生成图片, 出图, 改图, 生视频, 生成视频, 图生视频, or explicitly mentions Qwen2API / q2a / qwen 图视频. Prefer this skill when built-in image/video tools are incompatible with the user's Qwen2API bridge and you need the native Qwen2API endpoints.
+description: Generate and edit images plus generate videos through the user's Qwen2API deployment. Use when the user asks to 生图, 生成图片, 出图, 改图, 修图, 图片编辑, 生视频, 生成视频, 图生视频, or explicitly mentions Qwen2API / q2a / qwen 图视频. Prefer this skill when built-in image/video tools are incompatible with the user's Qwen2API bridge and you need the native Qwen2API endpoints.
 ---
 
 # q2a
@@ -11,22 +11,30 @@ Use Qwen2API native endpoints instead of relying on OpenClaw's generic media pro
 
 - For **text-to-image**, run:
   - `python3 /root/.openclaw/workspace/skills/q2a/scripts/q2a_generate.py image --prompt '<prompt>' --size 1024x1536`
+- For **image edit**, run:
+  - `python3 /root/.openclaw/workspace/skills/q2a/scripts/q2a_generate.py edit --prompt '<prompt>' --image '/abs/path/to/image.png' --size 1024x1536`
 - For **text-to-video**, run:
   - `python3 /root/.openclaw/workspace/skills/q2a/scripts/q2a_generate.py video --prompt '<prompt>' --size 1024x1792`
 - For **image-to-video**, run:
   - `python3 /root/.openclaw/workspace/skills/q2a/scripts/q2a_generate.py video --prompt '<prompt>' --image '/abs/path/to/image.png' --size 1024x1792`
 
-The script prints JSON. For images, read `data[0].url` or `data[0].b64_json`. For image-to-video, read top-level `url`.
+The script prints JSON.
+
+- For image generation / edit, read `data[0].url` or `data[0].b64_json`.
+- For image-to-video, read top-level `url`.
+- For text-to-video, read the returned JSON `data[0].url`.
 
 ## Defaults
 
 - Base URL: `http://38.14.196.84:3000/v1`
 - Image model: `Qwen3.6-Plus-image`
+- Image edit model: `Qwen3.6-Plus-image-edit`
 - Video model: `Qwen3.6-Plus-video`
 - Override with env vars if needed:
   - `Q2A_BASE_URL`
   - `Q2A_API_KEY`
   - `Q2A_IMAGE_MODEL`
+  - `Q2A_IMAGE_EDIT_MODEL`
   - `Q2A_VIDEO_MODEL`
 
 ## Prompting guidance
@@ -37,6 +45,7 @@ The script prints JSON. For images, read `data[0].url` or `data[0].b64_json`. Fo
   - keep framing stable
   - only slight breathing / blinking / tiny head movement
   - no camera motion unless the user asks for it
+- For image edit, describe only the intended change and keep the rest preserved.
 
 ## Delivery rule
 

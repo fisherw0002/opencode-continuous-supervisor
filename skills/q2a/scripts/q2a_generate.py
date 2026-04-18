@@ -4,13 +4,13 @@ import base64
 import json
 import os
 import re
-import sys
 import urllib.request
 from pathlib import Path
 
 DEFAULT_BASE_URL = os.environ.get('Q2A_BASE_URL', 'http://38.14.196.84:3000/v1')
 DEFAULT_API_KEY = os.environ.get('Q2A_API_KEY', 'sk-J0pjubVCCd359W933IxrmHFJ7nXQOIO6')
 DEFAULT_IMAGE_MODEL = os.environ.get('Q2A_IMAGE_MODEL', 'Qwen3.6-Plus-image')
+DEFAULT_IMAGE_EDIT_MODEL = os.environ.get('Q2A_IMAGE_EDIT_MODEL', 'Qwen3.6-Plus-image-edit')
 DEFAULT_VIDEO_MODEL = os.environ.get('Q2A_VIDEO_MODEL', 'Qwen3.6-Plus-video')
 
 
@@ -65,6 +65,17 @@ def generate_image(prompt: str, size: str, response_format: str, base_url: str, 
     return post_json(f'{base_url}/images/generations', payload, api_key)
 
 
+def edit_image(prompt: str, image_path: str, size: str, response_format: str, base_url: str, api_key: str, model: str):
+    payload = {
+        'model': model,
+        'prompt': prompt,
+        'image': image_to_data_uri(image_path),
+        'size': size,
+        'response_format': response_format,
+    }
+    return post_json(f'{base_url}/images/edits', payload, api_key)
+
+
 def generate_video(prompt: str, size: str, base_url: str, api_key: str, model: str, image_path: str | None = None):
     if image_path:
         payload = {
@@ -90,7 +101,7 @@ def generate_video(prompt: str, size: str, base_url: str, api_key: str, model: s
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Generate image/video via Qwen2API native endpoints.')
+    parser = argparse.ArgumentParser(description='Generate or edit image/video via Qwen2API native endpoints.')
     sub = parser.add_subparsers(dest='cmd', required=True)
 
     p_img = sub.add_parser('image')
@@ -100,6 +111,15 @@ def main():
     p_img.add_argument('--base-url', default=DEFAULT_BASE_URL)
     p_img.add_argument('--api-key', default=DEFAULT_API_KEY)
     p_img.add_argument('--model', default=DEFAULT_IMAGE_MODEL)
+
+    p_edit = sub.add_parser('edit')
+    p_edit.add_argument('--prompt', required=True)
+    p_edit.add_argument('--image', required=True)
+    p_edit.add_argument('--size', default='1024x1536')
+    p_edit.add_argument('--response-format', default='url', choices=['url', 'b64_json'])
+    p_edit.add_argument('--base-url', default=DEFAULT_BASE_URL)
+    p_edit.add_argument('--api-key', default=DEFAULT_API_KEY)
+    p_edit.add_argument('--model', default=DEFAULT_IMAGE_EDIT_MODEL)
 
     p_vid = sub.add_parser('video')
     p_vid.add_argument('--prompt', required=True)
@@ -116,8 +136,12 @@ def main():
         print(json.dumps(result, ensure_ascii=False))
         return
 
+    if args.cmd == 'edit':
+        result = edit_image(args.prompt, args.image, args.size, args.response_format, args.base_url, args.api_key, args.model)
+        print(json.dumps(result, ensure_ascii=False))
+        return
+
     result = generate_video(args.prompt, args.size, args.base_url, args.api_key, args.model, args.image or None)
-    # normalize chat-completions style response to a simple object with URL when possible
     if args.image:
         url = extract_video_url_from_chat_response(result)
         print(json.dumps({'url': url, 'raw': result}, ensure_ascii=False))
