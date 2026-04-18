@@ -18,5 +18,6 @@ Current behavior:
   - `grok-imagine-image-lite`
   - `grok-imagine-image`
   - `grok-imagine-1.0`
+- This is the preferred G2A image entrypoint.
 
 Prefer sending the generated image as a real attachment, not a bare link. If the script returns a local file path, attach that file in the same turn instead of sending a text-only confirmation.
