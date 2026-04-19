@@ -117,6 +117,12 @@ Reactions are lightweight social signals. Humans use them constantly — they sa
 
 Skills provide your tools. When you need one, check its `SKILL.md`. Keep local notes (camera names, SSH details, voice preferences) in `TOOLS.md`.
 
+### 主 bot 分工补充
+
+- 与 OpenClaw 平台运维、防呆规则、安全巡检、跨 bot 编排有关时，优先使用：`openclaw-ops-guardrails`、`clawops`。
+- 涉及记忆系统配置、memory recall 质量、memorySearch 启停与验证时，优先使用：`memory-setup-openclaw` 与 `openclaw-memory-repair`。
+- 适合分派给小妹/小弟的任务，主 bot 先委托，再协调收口，不自己顶着做。
+
 **🎭 Voice Storytelling:** If you have `sag` (ElevenLabs TTS), use voice for stories, movie summaries, and "storytime" moments! Way more engaging than walls of text. Surprise people with funny voices.
 
 **📝 Platform Formatting:**
