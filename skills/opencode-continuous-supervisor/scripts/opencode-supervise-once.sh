@@ -1,4 +1,7 @@
 #!/bin/bash
+# opencode-supervise-once.sh
+# Runs one cycle: watchdog + acceptance check + unified decide → action
+# Outputs: combined JSON + "decider: {...}" line + "[supervise-once] action=X reason=Y"
 set -euo pipefail
 
 PROJECT_DIR="${1:-}"
@@ -15,8 +18,9 @@ TMPDIR="${TMPDIR:-/tmp}"
 WATCH_FILE=$(mktemp "$TMPDIR/opencode-watch-XXXXXX.json")
 ACCEPT_FILE=$(mktemp "$TMPDIR/opencode-accept-XXXXXX.json")
 COMBINED_FILE=$(mktemp "$TMPDIR/opencode-combined-XXXXXX.json")
+DECISION_FILE=$(mktemp "$TMPDIR/opencode-decision-XXXXXX.json")
 
-cleanup() { rm -f "$WATCH_FILE" "$ACCEPT_FILE" "$COMBINED_FILE" 2>/dev/null; }
+cleanup() { rm -f "$WATCH_FILE" "$ACCEPT_FILE" "$COMBINED_FILE" "$DECISION_FILE" 2>/dev/null; }
 trap cleanup EXIT
 
 if [ -z "$PROJECT_DIR" ]; then
@@ -40,8 +44,9 @@ if [ -n "$CRITERIA_FILE" ] && [ -f "$CRITERIA_FILE" ]; then
   python3 "$ACCEPT_PY" "$PROJECT_DIR" "$CRITERIA_FILE" > "$ACCEPT_FILE"
 fi
 
-# Merge: read watch + optionally accept → combined file
-python3 - <<'PY' "$WATCH_FILE" "$ACCEPT_FILE" > "$COMBINED_FILE"
+# Merge watch + accept into combined file
+MERGE_SCRIPT=$(mktemp "$TMPDIR/merge-XXXXXX.py")
+cat > "$MERGE_SCRIPT" <<'INNERPY'
 import json, sys
 wpath = sys.argv[1]
 apath = sys.argv[2] if len(sys.argv) > 2 else None
@@ -52,19 +57,28 @@ if apath and open(apath).read().strip():
         out["acceptance"] = json.loads(open(apath).read())
     except Exception:
         pass
-print(json.dumps(out, ensure_ascii=False, indent=2))
-PY
+open(sys.argv[3], "w").write(json.dumps(out, ensure_ascii=False, indent=2))
+INNERPY
+python3 "$MERGE_SCRIPT" "$WATCH_FILE" "$ACCEPT_FILE" "$COMBINED_FILE"
+rm -f "$MERGE_SCRIPT"
 
+# Print combined JSON to stdout (for callers that want it)
 cat "$COMBINED_FILE"
 
-# Run unified decider
-DECISION=$(python3 "$DECIDE_PY" "$COMBINED_FILE")
+# Run unified decider → write to decision file
+python3 "$DECIDE_PY" "$COMBINED_FILE" > "$DECISION_FILE"
+DECISION=$(cat "$DECISION_FILE")
+
+# Echo decider as a separate parseable line
 echo "decider: $DECISION"
-ACTION=$(printf '%s' "$DECISION" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("action","error"))')
-REASON=$(printf '%s' "$DECISION" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("reason",""))')
+
+# Extract action + reason
+ACTION=$(python3 -c "import json; print(json.load(open('$DECISION_FILE')).get('action','error'))")
+REASON=$(python3 -c "import json; print(json.load(open('$DECISION_FILE')).get('reason',''))")
 
 echo "[supervise-once] action=$ACTION reason=$REASON"
 
+# If stop or wait, do NOT send a prompt; just exit
 if [ "$ACTION" = "stop" ] || [ "$ACTION" = "wait" ]; then
   echo "[supervise-once] action=$ACTION; no prompt sent"
   exit 0

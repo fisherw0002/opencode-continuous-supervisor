@@ -1,4 +1,6 @@
 #!/bin/bash
+# opencode-supervise-loop.sh
+# Runs supervise-once in a loop until acceptance is met or max cycles reached.
 set -euo pipefail
 
 PROJECT_DIR="${1:-}"
@@ -20,17 +22,24 @@ while true; do
   cycle=$((cycle+1))
   echo "[supervise-loop] cycle=$cycle project=$PROJECT_DIR"
 
-  OUT=$(bash "$ONCE_SH" "$PROJECT_DIR" "$SESSION_NAME" "$PROMPT_FILE" "$STATE_DIR" "$CRITERIA_FILE")
-  # Extract action from decider output
-  ACTION=$(printf '%s' "$OUT" | python3 - <<'PY'
-import json, sys
-d = json.load(sys.stdin)
-dec = d.get("decider", {})
-print(dec.get("action", "unknown") if isinstance(dec, dict) else "unknown")
-PY)
+  # Run once; capture full output
+  OUT=$(bash "$ONCE_SH" "$PROJECT_DIR" "$SESSION_NAME" "$PROMPT_FILE" "$STATE_DIR" "$CRITERIA_FILE" 2>&1) || true
+
+  # Extract action from the "decider: {...}" line that once.sh emits
+  # The decider line looks like:  decider: {"action": "stop", "reason": "..."}
+  # Use grep + sed in a subshell that won't kill the script on non-match
+  DECIDER_LINE=$(printf '%s' "$OUT" | grep '^decider: ' | head -1 | sed 's/^decider: //' || true)
+  if [ -z "$DECIDER_LINE" ]; then
+    echo "[supervise-loop] WARNING: no decider line found in once.sh output; defaulting to wait"
+    ACTION="wait"
+  else
+    ACTION=$(printf '%s' "$DECIDER_LINE" | python3 -c "import json,sys; print(json.load(sys.stdin).get('action','error'))")
+  fi
+
+  echo "[supervise-loop] cycle=$cycle action=$ACTION"
 
   if [ "$ACTION" = "stop" ]; then
-    echo "[supervise-loop] action=stop; acceptance met; exiting"
+    echo "[supervise-loop] acceptance met or stop requested; exiting"
     exit 0
   fi
 
@@ -45,7 +54,6 @@ PY)
     continue
   fi
 
-  # For revive/reprompt, the once script already sent the prompt;
-  # sleep before next inspection
+  # For revive/reprompt, once.sh already sent the prompt; sleep before next inspection
   sleep "$INTERVAL_SECONDS"
 done
