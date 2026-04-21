@@ -127,13 +127,12 @@ This skill now includes a minimal runnable scaffold under `scripts/`:
   - maps project/repo -> primary OpenCode session name
 - `scripts/opencode-acceptance-check.py`
   - evaluates simple acceptance criteria JSON against files/artifacts/commands/text
+- `scripts/opencode-unified-decider.py`
+  - takes combined watchdog+acceptance JSON; emits final action: stop | wait | reprompt | revive
+  - decision matrix: acceptance→stop, dead→revive, stalled→reprompt, stale tasks→reprompt, else→wait
 - `scripts/opencode-supervise-once.sh`
-  - runs watchdog once; if needed, re-prompts the same persistent session
+  - runs watchdog + acceptance + unified decider; if action is reprompt/revive, sends prompt to the session
   - auto-derives session name from the registry when omitted
-  - if a criteria file is provided, it checks acceptance before deciding to continue
-- `scripts/opencode-supervise-loop.sh`
-  - recurring supervisor loop over `supervise-once`
-  - stops only when acceptance passes or max cycles is reached
 - `assets/default-continue-prompt.txt`
   - default continue/keep-working prompt
 - `assets/example-acceptance-criteria.json`
@@ -143,31 +142,42 @@ This skill now includes a minimal runnable scaffold under `scripts/`:
 
 Use these as a base, not as a finished production controller.
 
+## Architecture: three-layer decision
+
+The supervisor operates in three layers. Each layer feeds into the next:
+
+```
+Layer 1: opencode-watchdog.py
+  → session_status, lifecycle, stale_count, taskSummary
+
+Layer 2: opencode-acceptance-check.py
+  → accepted: true/false
+
+Layer 3: opencode-unified-decider.py
+  → final action: stop | wait | reprompt | revive
+```
+
+The decider is the single point of truth for what the supervisor does next.
+
 ## Minimal usage
 
 ```bash
-# 1. Ensure the persistent session exists
-bash skills/opencode-continuous-supervisor/scripts/opencode-sessionctl.sh ensure /path/to/project oc-opencode-demo
+# 1. Inspect current state (watchdog only)
+python3 skills/opencode-continuous-supervisor/scripts/opencode-watchdog.py /path/to/project my-session
 
-# 2. Inspect health and freshness
-python3 skills/opencode-continuous-supervisor/scripts/opencode-watchdog.py /path/to/project oc-opencode-demo
-
-# 3. If needed, auto-reprompt the same session once
-bash skills/opencode-continuous-supervisor/scripts/opencode-supervise-once.sh /path/to/project oc-opencode-demo
-
-# 4. Check acceptance against explicit criteria
+# 2. Check acceptance criteria against a project
 python3 skills/opencode-continuous-supervisor/scripts/opencode-acceptance-check.py \
   /path/to/project \
-  skills/opencode-continuous-supervisor/assets/example-acceptance-criteria.json
+  skills/opencode-continuous-supervisor/assets/otp-reader-helper-acceptance.json
 
-# 5. Run a recurring supervisor loop until accepted
+# 3. Run one supervised cycle (watchdog → acceptance → decider → prompt if needed)
+bash skills/opencode-continuous-supervisor/scripts/opencode-supervise-once.sh \
+  /path/to/project my-session
+
+# 4. Run the supervisor loop until stop or max-cycles
 INTERVAL_SECONDS=120 MAX_CYCLES=30 \
   bash skills/opencode-continuous-supervisor/scripts/opencode-supervise-loop.sh \
-    /path/to/project \
-    oc-opencode-demo \
-    '' \
-    "$HOME/.openclaw/workspace/state/opencode-supervisor" \
-    skills/opencode-continuous-supervisor/assets/example-acceptance-criteria.json
+    /path/to/project my-session
 ```
 
 ## Read this reference when you need full provenance
