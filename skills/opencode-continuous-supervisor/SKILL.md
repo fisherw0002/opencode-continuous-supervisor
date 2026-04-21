@@ -114,17 +114,45 @@ It should stop only when the job is actually accepted, for example:
 - pure poll loops with no task/session truth model
 - anything that binds user chat directly to the worker session unless explicitly requested
 
-## Files to create when implementing
+## Included semi-executable scaffolding
 
-A good implementation usually needs:
-- one controller script/module
-- one watchdog script/module
-- one persistent session metadata/state file
+This skill now includes a minimal runnable scaffold under `scripts/`:
+
+- `scripts/opencode-sessionctl.sh`
+  - ensure/status/prompt/cancel/close/history/read for a named OpenCode session
+- `scripts/opencode-watchdog.py`
+  - inspects session health + recent history and emits a decision JSON
+- `scripts/opencode-supervise-once.sh`
+  - runs watchdog once; if needed, re-prompts the same persistent session
+- `assets/default-continue-prompt.txt`
+  - default continue/keep-working prompt
+
+Use these as a base, not as a finished production controller.
+
+## Minimal usage
+
+```bash
+# 1. Ensure the persistent session exists
+bash skills/opencode-continuous-supervisor/scripts/opencode-sessionctl.sh ensure /path/to/project oc-opencode-demo
+
+# 2. Inspect health and freshness
+python3 skills/opencode-continuous-supervisor/scripts/opencode-watchdog.py /path/to/project oc-opencode-demo
+
+# 3. If needed, auto-reprompt the same session once
+bash skills/opencode-continuous-supervisor/scripts/opencode-supervise-once.sh /path/to/project oc-opencode-demo
+```
+
+## Files to create when implementing further
+
+A stronger implementation usually still needs:
 - one acceptance-criteria definition per workflow family
+- one registry mapping repo -> primary session
+- one scheduler / recurring trigger for the watchdog
+- optional notification/report layer
 
-## If asked to implement
+## If asked to implement further
 
-When the user asks to actually build this system:
+When the user asks to actually build this system deeper:
 1. Inspect the current bot runtime mode first
 2. Verify whether chat binding is already disabled
 3. Inspect task/session truth sources before proposing cron logic
