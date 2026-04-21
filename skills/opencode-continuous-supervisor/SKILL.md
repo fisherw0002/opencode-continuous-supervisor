@@ -130,6 +130,10 @@ This skill now includes a minimal runnable scaffold under `scripts/`:
 - `scripts/opencode-supervise-once.sh`
   - runs watchdog once; if needed, re-prompts the same persistent session
   - auto-derives session name from the registry when omitted
+  - if a criteria file is provided, it checks acceptance before deciding to continue
+- `scripts/opencode-supervise-loop.sh`
+  - recurring supervisor loop over `supervise-once`
+  - stops only when acceptance passes or max cycles is reached
 - `assets/default-continue-prompt.txt`
   - default continue/keep-working prompt
 - `assets/example-acceptance-criteria.json`
@@ -155,6 +159,15 @@ bash skills/opencode-continuous-supervisor/scripts/opencode-supervise-once.sh /p
 python3 skills/opencode-continuous-supervisor/scripts/opencode-acceptance-check.py \
   /path/to/project \
   skills/opencode-continuous-supervisor/assets/example-acceptance-criteria.json
+
+# 5. Run a recurring supervisor loop until accepted
+INTERVAL_SECONDS=120 MAX_CYCLES=30 \
+  bash skills/opencode-continuous-supervisor/scripts/opencode-supervise-loop.sh \
+    /path/to/project \
+    oc-opencode-demo \
+    '' \
+    "$HOME/.openclaw/workspace/state/opencode-supervisor" \
+    skills/opencode-continuous-supervisor/assets/example-acceptance-criteria.json
 ```
 
 ## Read this reference when you need full provenance
@@ -165,10 +178,10 @@ python3 skills/opencode-continuous-supervisor/scripts/opencode-acceptance-check.
 ## Files to create when implementing further
 
 A stronger implementation usually still needs:
-- one scheduler / recurring trigger for the watchdog
 - optional notification/report layer
 - deeper task parsing (instead of best-effort raw task JSON snippet)
 - richer workflow-specific criteria beyond files/commands/text checks
+- stronger waiting-for-input vs healthy-thinking differentiation
 
 ## If asked to implement further
 
