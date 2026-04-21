@@ -122,7 +122,7 @@ This skill now includes a minimal runnable scaffold under `scripts/`:
   - ensure/status/prompt/cancel/close/history/read for a named OpenCode session
 - `scripts/opencode-watchdog.py`
   - inspects session health + recent history and emits a decision JSON
-  - includes best-effort `openclaw tasks list --json` snippet for task-truth context when available
+  - includes best-effort `openclaw tasks list --status running --json` parsing for task-truth context when available
 - `scripts/opencode-session-registry.py`
   - maps project/repo -> primary OpenCode session name
 - `scripts/opencode-acceptance-check.py`
@@ -174,6 +174,8 @@ INTERVAL_SECONDS=120 MAX_CYCLES=30 \
 
 - `references/origins-and-design.md`
   - documents where this skill's architecture comes from (official docs, community skills, and local bot failure patterns)
+- `references/task-truth-source.md`
+  - explains how task ledger truth is used and why it is only one input to the watchdog
 
 ## Files to create when implementing further
 

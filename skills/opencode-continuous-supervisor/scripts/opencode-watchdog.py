@@ -6,7 +6,7 @@ PROJECT_DIR = Path(sys.argv[1]) if len(sys.argv) > 1 else None
 SESSION_NAME = sys.argv[2] if len(sys.argv) > 2 else "oc-opencode-default"
 STATE_DIR = Path(sys.argv[3]) if len(sys.argv) > 3 else Path.home()/".openclaw"/"workspace"/"state"/"opencode-supervisor"
 STALL_CYCLES = int(os.environ.get("OPENCODE_STALL_CYCLES", "2"))
-RECENT_TASK_LIMIT = int(os.environ.get("OPENCODE_TASK_LIMIT", "10"))
+TASK_STALE_SECONDS = int(os.environ.get("OPENCODE_TASK_STALE_SECONDS", "600"))
 
 if not PROJECT_DIR or not PROJECT_DIR.is_dir():
     print(json.dumps({"status":"error","error":"valid project_dir required"}))
@@ -29,12 +29,34 @@ rc2, read_out, read_err = run(["acpx","opencode","sessions","read","--tail","1",
 
 # Best-effort OpenClaw task truth source
 recent_tasks = None
+task_summary = None
 try:
-    trc, tout, terr = run(["openclaw","tasks","list","--json"], timeout=8)
+    trc, tout, terr = run(["openclaw","tasks","list","--status","running","--json"], timeout=8)
     if trc == 0 and tout.strip():
         recent_tasks = tout[:12000]
+        data = json.loads(tout)
+        tasks = data.get("tasks", []) if isinstance(data, dict) else []
+        now_ms = int(time.time() * 1000)
+        stale_running = []
+        for t in tasks:
+            last = int(t.get("lastEventAt") or t.get("startedAt") or t.get("createdAt") or 0)
+            age_s = (now_ms - last) / 1000 if last else None
+            if age_s is not None and age_s > TASK_STALE_SECONDS:
+                stale_running.append({
+                    "taskId": t.get("taskId"),
+                    "runId": t.get("runId"),
+                    "label": t.get("label"),
+                    "childSessionKey": t.get("childSessionKey"),
+                    "ageSeconds": round(age_s, 1),
+                })
+        task_summary = {
+            "runningCount": len(tasks),
+            "staleRunningCount": len(stale_running),
+            "staleRunning": stale_running[:10],
+        }
 except Exception:
     recent_tasks = None
+    task_summary = None
 
 status = "unknown"
 for line in status_out.splitlines():
@@ -91,6 +113,7 @@ out = {
     "stale_count": stale_count,
     "decision": decision,
     "reason": reason,
+    "taskSummary": task_summary,
     "recent_tasks_json_snippet": recent_tasks,
 }
 state_file.write_text(json.dumps(out, ensure_ascii=False, indent=2))
