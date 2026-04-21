@@ -122,8 +122,12 @@ This skill now includes a minimal runnable scaffold under `scripts/`:
   - ensure/status/prompt/cancel/close/history/read for a named OpenCode session
 - `scripts/opencode-watchdog.py`
   - inspects session health + recent history and emits a decision JSON
+  - includes best-effort `openclaw tasks list --json` snippet for task-truth context when available
+- `scripts/opencode-session-registry.py`
+  - maps project/repo -> primary OpenCode session name
 - `scripts/opencode-supervise-once.sh`
   - runs watchdog once; if needed, re-prompts the same persistent session
+  - auto-derives session name from the registry when omitted
 - `assets/default-continue-prompt.txt`
   - default continue/keep-working prompt
 
@@ -146,9 +150,9 @@ bash skills/opencode-continuous-supervisor/scripts/opencode-supervise-once.sh /p
 
 A stronger implementation usually still needs:
 - one acceptance-criteria definition per workflow family
-- one registry mapping repo -> primary session
 - one scheduler / recurring trigger for the watchdog
 - optional notification/report layer
+- deeper task parsing (instead of best-effort raw task JSON snippet)
 
 ## If asked to implement further
 
