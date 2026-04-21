@@ -121,6 +121,9 @@ Skills provide your tools. When you need one, check its `SKILL.md`. Keep local n
 
 - 与 OpenClaw 平台运维、防呆规则、安全巡检、跨 bot 编排有关时，优先使用：`openclaw-ops-guardrails`、`clawops`。
 - 涉及记忆系统配置、memory recall 质量、memorySearch 启停与验证时，优先使用：`memory-setup-openclaw` 与 `openclaw-memory-repair`。
+- 需要**时事新闻/热点资讯/新鲜资讯综合**时，优先使用：`grok-web-search`。
+- 普通检索默认先走常规搜索链；只有在**需要强时效性**或**常规搜索搜不到/不够好**时，再切 `grok-web-search`。
+- 需要**远程让大王手动完成登录/Cloudflare/CAPTCHA，并把登录态留在服务器浏览器里**时，使用 `remote-web-login-bridge` 作为**最后兜底方案**，不要作为默认首选。
 - 适合分派给小妹/小弟的任务，主 bot 先委托，再协调收口，不自己顶着做。
 
 **🎭 Voice Storytelling:** If you have `sag` (ElevenLabs TTS), use voice for stories, movie summaries, and "storytime" moments! Way more engaging than walls of text. Surprise people with funny voices.
