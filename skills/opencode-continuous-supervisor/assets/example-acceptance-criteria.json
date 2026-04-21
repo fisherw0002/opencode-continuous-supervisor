@@ -1,0 +1,12 @@
+{
+  "name": "generic-opencode-job",
+  "requiredFiles": [],
+  "artifactFiles": [],
+  "commands": [
+    {
+      "command": "true",
+      "mustContain": []
+    }
+  ],
+  "fileTextMustContain": []
+}

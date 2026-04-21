@@ -125,11 +125,17 @@ This skill now includes a minimal runnable scaffold under `scripts/`:
   - includes best-effort `openclaw tasks list --json` snippet for task-truth context when available
 - `scripts/opencode-session-registry.py`
   - maps project/repo -> primary OpenCode session name
+- `scripts/opencode-acceptance-check.py`
+  - evaluates simple acceptance criteria JSON against files/artifacts/commands/text
 - `scripts/opencode-supervise-once.sh`
   - runs watchdog once; if needed, re-prompts the same persistent session
   - auto-derives session name from the registry when omitted
 - `assets/default-continue-prompt.txt`
   - default continue/keep-working prompt
+- `assets/example-acceptance-criteria.json`
+  - generic acceptance criteria example
+- `assets/otp-reader-helper-acceptance.json`
+  - workflow-specific example criteria
 
 Use these as a base, not as a finished production controller.
 
@@ -144,15 +150,25 @@ python3 skills/opencode-continuous-supervisor/scripts/opencode-watchdog.py /path
 
 # 3. If needed, auto-reprompt the same session once
 bash skills/opencode-continuous-supervisor/scripts/opencode-supervise-once.sh /path/to/project oc-opencode-demo
+
+# 4. Check acceptance against explicit criteria
+python3 skills/opencode-continuous-supervisor/scripts/opencode-acceptance-check.py \
+  /path/to/project \
+  skills/opencode-continuous-supervisor/assets/example-acceptance-criteria.json
 ```
+
+## Read this reference when you need full provenance
+
+- `references/origins-and-design.md`
+  - documents where this skill's architecture comes from (official docs, community skills, and local bot failure patterns)
 
 ## Files to create when implementing further
 
 A stronger implementation usually still needs:
-- one acceptance-criteria definition per workflow family
 - one scheduler / recurring trigger for the watchdog
 - optional notification/report layer
 - deeper task parsing (instead of best-effort raw task JSON snippet)
+- richer workflow-specific criteria beyond files/commands/text checks
 
 ## If asked to implement further
 

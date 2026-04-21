@@ -1,0 +1,32 @@
+{
+  "name": "otp-reader-helper",
+  "requiredFiles": [
+    "popup.html",
+    "popup.css",
+    "popup.js",
+    "README.md",
+    "MODULE_STATUS.md"
+  ],
+  "artifactFiles": [
+    "dist/otp-reader-helper-v2.5.1.zip"
+  ],
+  "commands": [
+    {
+      "command": "node tests/cases.js",
+      "mustContain": [
+        "40/40 passed",
+        "0 failed"
+      ]
+    }
+  ],
+  "fileTextMustContain": [
+    {
+      "path": "README.md",
+      "contains": ["40/40 passed", "M8", "M9"]
+    },
+    {
+      "path": "MODULE_STATUS.md",
+      "contains": ["交付基线", "本地可测", "需 Gmail 环境手测"]
+    }
+  ]
+}
