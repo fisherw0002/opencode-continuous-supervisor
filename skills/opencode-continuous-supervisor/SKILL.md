@@ -130,8 +130,10 @@ This skill now includes a minimal runnable scaffold under `scripts/`:
 - `scripts/opencode-unified-decider.py`
   - takes combined watchdog+acceptance JSON; emits final action: stop | wait | reprompt | revive
   - decision matrix: acceptance→stop, dead→revive, stalled→reprompt, stale tasks→reprompt, else→wait
+- `scripts/opencode-quality-gate.py`
+  - runs a delivery-quality gate after base acceptance: artifact size/type checks, optional commands/text checks, and rework prompt generation
 - `scripts/opencode-delivery-report.py`
-  - builds a delivery JSON when acceptance is met: artifact paths, command evidence, summary, and user-facing summary
+  - builds a delivery JSON when acceptance is met: artifact paths, command evidence, quality-gate result, summary, and user-facing summary
 - `scripts/opencode-supervise-once.sh`
   - runs watchdog + acceptance + unified decider; if action is reprompt/revive, sends prompt to the session
   - if action is stop, emits a parseable `delivery: {...}` line for the caller/controller
@@ -156,15 +158,19 @@ Layer 1: opencode-watchdog.py
 Layer 2: opencode-acceptance-check.py
   → accepted: true/false
 
-Layer 3: opencode-unified-decider.py
+Layer 3: opencode-quality-gate.py
+  → deliveryReady: true/false + feedbackPrompt
+
+Layer 4: opencode-unified-decider.py
   → final action: stop | wait | reprompt | revive
 
-Layer 4: opencode-delivery-report.py
-  → delivery JSON for accepted jobs (artifacts + checks + userSummary)
+Layer 5: opencode-delivery-report.py
+  → delivery JSON for accepted jobs (artifacts + checks + quality + userSummary)
 ```
 
 The decider is the single point of truth for what the supervisor does next.
-The delivery layer is the bridge from “accepted” to “ready to proactively report back”.
+The quality gate prevents “accepted but not actually fit to deliver”.
+The delivery layer is the bridge from “accepted + quality passed” to “ready to proactively report back”.
 
 ## Minimal usage
 
@@ -201,6 +207,7 @@ A stronger implementation usually still needs:
 - deeper task parsing (instead of best-effort raw task JSON snippet)
 - richer workflow-specific criteria beyond files/commands/text checks
 - stronger waiting-for-input vs healthy-thinking differentiation
+- optional human-in-the-loop quality review hooks for highly subjective deliverables
 
 ## If asked to implement further
 

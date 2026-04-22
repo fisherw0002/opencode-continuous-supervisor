@@ -8,5 +8,15 @@
       "mustContain": []
     }
   ],
-  "fileTextMustContain": []
+  "fileTextMustContain": [],
+  "deliveryChecks": {
+    "artifactFiles": [],
+    "artifactMinSizeBytes": {},
+    "commands": [],
+    "fileTextMustContain": [],
+    "manualReviewNotes": [
+      "accepted 不等于可交付；小弟必须确认交付物确实符合用户要求",
+      "如果质量不合格，应打回 OpenCode 返工，而不是直接发给用户"
+    ]
+  }
 }

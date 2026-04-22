@@ -28,5 +28,17 @@
       "path": "MODULE_STATUS.md",
       "contains": ["交付基线", "本地可测", "需 Gmail 环境手测"]
     }
-  ]
+  ],
+  "deliveryChecks": {
+    "artifactFiles": [
+      "dist/otp-reader-helper-v2.5.1.zip"
+    ],
+    "artifactMinSizeBytes": {
+      "dist/otp-reader-helper-v2.5.1.zip": 50000
+    },
+    "manualReviewNotes": [
+      "小弟必须确认交付物路径真实存在后才能发给用户",
+      "如果用户要求的是 zip 包，不能只交付口头摘要"
+    ]
+  }
 }

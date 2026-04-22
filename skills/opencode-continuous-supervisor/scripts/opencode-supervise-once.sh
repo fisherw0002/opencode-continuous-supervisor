@@ -15,14 +15,16 @@ ACCEPT_PY="$(dirname "$0")/opencode-acceptance-check.py"
 WATCH_PY="$(dirname "$0")/opencode-watchdog.py"
 DECIDE_PY="$(dirname "$0")/opencode-unified-decider.py"
 DELIVERY_PY="$(dirname "$0")/opencode-delivery-report.py"
+QUALITY_PY="$(dirname "$0")/opencode-quality-gate.py"
 TMPDIR="${TMPDIR:-/tmp}"
 WATCH_FILE=$(mktemp "$TMPDIR/opencode-watch-XXXXXX.json")
 ACCEPT_FILE=$(mktemp "$TMPDIR/opencode-accept-XXXXXX.json")
+QUALITY_FILE=$(mktemp "$TMPDIR/opencode-quality-XXXXXX.json")
 COMBINED_FILE=$(mktemp "$TMPDIR/opencode-combined-XXXXXX.json")
 DECISION_FILE=$(mktemp "$TMPDIR/opencode-decision-XXXXXX.json")
 DELIVERY_FILE=$(mktemp "$TMPDIR/opencode-delivery-XXXXXX.json")
 
-cleanup() { rm -f "$WATCH_FILE" "$ACCEPT_FILE" "$COMBINED_FILE" "$DECISION_FILE" "$DELIVERY_FILE" 2>/dev/null; }
+cleanup() { rm -f "$WATCH_FILE" "$ACCEPT_FILE" "$QUALITY_FILE" "$COMBINED_FILE" "$DECISION_FILE" "$DELIVERY_FILE" 2>/dev/null; }
 trap cleanup EXIT
 
 if [ -z "$PROJECT_DIR" ]; then
@@ -44,14 +46,16 @@ python3 "$WATCH_PY" "$PROJECT_DIR" "$SESSION_NAME" "$STATE_DIR" > "$WATCH_FILE"
 # Run acceptance check if criteria file provided
 if [ -n "$CRITERIA_FILE" ] && [ -f "$CRITERIA_FILE" ]; then
   python3 "$ACCEPT_PY" "$PROJECT_DIR" "$CRITERIA_FILE" > "$ACCEPT_FILE"
+  python3 "$QUALITY_PY" "$PROJECT_DIR" "$CRITERIA_FILE" > "$QUALITY_FILE"
 fi
 
-# Merge watch + accept into combined file
+# Merge watch + accept + quality into combined file
 MERGE_SCRIPT=$(mktemp "$TMPDIR/merge-XXXXXX.py")
 cat > "$MERGE_SCRIPT" <<'INNERPY'
 import json, sys
 wpath = sys.argv[1]
 apath = sys.argv[2] if len(sys.argv) > 2 else None
+qpath = sys.argv[3] if len(sys.argv) > 3 else None
 watch = json.loads(open(wpath).read())
 out = {"watchdog": watch}
 if apath and open(apath).read().strip():
@@ -59,9 +63,14 @@ if apath and open(apath).read().strip():
         out["acceptance"] = json.loads(open(apath).read())
     except Exception:
         pass
-open(sys.argv[3], "w").write(json.dumps(out, ensure_ascii=False, indent=2))
+if qpath and open(qpath).read().strip():
+    try:
+        out["qualityGate"] = json.loads(open(qpath).read())
+    except Exception:
+        pass
+open(sys.argv[4], "w").write(json.dumps(out, ensure_ascii=False, indent=2))
 INNERPY
-python3 "$MERGE_SCRIPT" "$WATCH_FILE" "$ACCEPT_FILE" "$COMBINED_FILE"
+python3 "$MERGE_SCRIPT" "$WATCH_FILE" "$ACCEPT_FILE" "$QUALITY_FILE" "$COMBINED_FILE"
 rm -f "$MERGE_SCRIPT"
 
 # Print combined JSON to stdout (for callers that want it)
@@ -97,10 +106,21 @@ if [ "$ACTION" = "wait" ]; then
 fi
 
 # Determine prompt text
-if [ -n "$PROMPT_FILE" ] && [ -f "$PROMPT_FILE" ]; then
-  PROMPT_TEXT=$(cat "$PROMPT_FILE")
+if [ "$ACTION" = "reprompt" ] && [ -s "$QUALITY_FILE" ]; then
+  QUALITY_READY=$(python3 -c "import json; print(str(json.load(open('$QUALITY_FILE')).get('deliveryReady', True)).lower())")
+  if [ "$QUALITY_READY" = "false" ]; then
+    PROMPT_TEXT=$(python3 -c "import json; print(json.load(open('$QUALITY_FILE')).get('feedbackPrompt','请按质量要求返工并继续。'))")
+  elif [ -n "$PROMPT_FILE" ] && [ -f "$PROMPT_FILE" ]; then
+    PROMPT_TEXT=$(cat "$PROMPT_FILE")
+  else
+    PROMPT_TEXT=$(cat "$DEFAULT_PROMPT_FILE")
+  fi
 else
-  PROMPT_TEXT=$(cat "$DEFAULT_PROMPT_FILE")
+  if [ -n "$PROMPT_FILE" ] && [ -f "$PROMPT_FILE" ]; then
+    PROMPT_TEXT=$(cat "$PROMPT_FILE")
+  else
+    PROMPT_TEXT=$(cat "$DEFAULT_PROMPT_FILE")
+  fi
 fi
 
 bash "$(dirname "$0")/opencode-sessionctl.sh" prompt "$PROJECT_DIR" "$PROMPT_TEXT" "$SESSION_NAME"

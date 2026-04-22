@@ -15,9 +15,11 @@ if not combined_path.is_file():
 combined = json.loads(combined_path.read_text())
 watch = combined.get("watchdog", {})
 accept = combined.get("acceptance", {})
+quality = combined.get("qualityGate", {})
 project_dir = Path((watch.get("project_dir") or accept.get("project_dir") or ".")).resolve()
-criteria = accept.get("criteria") or "unknown"
+criteria = accept.get("criteria") or quality.get("criteria") or "unknown"
 accepted = bool(accept.get("accepted", False))
+delivery_ready = quality.get("deliveryReady", True) if quality else True
 
 artifact_candidates = []
 for rel in accept.get("expectedArtifactFiles", []) or []:
@@ -68,6 +70,7 @@ summary_lines = []
 summary_lines.append(f"project={project_dir}")
 summary_lines.append(f"criteria={criteria}")
 summary_lines.append(f"accepted={str(accepted).lower()}")
+summary_lines.append(f"delivery_ready={str(delivery_ready).lower()}")
 if existing_artifacts:
     summary_lines.append("artifacts=")
     for a in existing_artifacts:
@@ -83,8 +86,10 @@ if missing_artifacts:
         summary_lines.append(f"- {rel}")
 
 user_summary_lines = []
-if accepted:
-    user_summary_lines.append("任务已达到验收条件。")
+if accepted and delivery_ready:
+    user_summary_lines.append("任务已达到验收条件，且已通过交付质量验收。")
+elif accepted:
+    user_summary_lines.append("任务已达到基础验收条件，但未通过交付质量验收。")
 else:
     user_summary_lines.append("任务尚未达到验收条件。")
 if existing_artifacts:
@@ -101,6 +106,8 @@ print(json.dumps({
     "project_dir": str(project_dir),
     "criteria": criteria,
     "accepted": accepted,
+    "deliveryReady": delivery_ready,
+    "qualityGate": quality,
     "requiredFiles": required_files,
     "artifacts": artifact_candidates,
     "existingArtifacts": existing_artifacts,
