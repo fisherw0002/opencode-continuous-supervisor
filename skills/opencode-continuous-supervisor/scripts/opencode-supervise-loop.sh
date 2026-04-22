@@ -11,10 +11,45 @@ CRITERIA_FILE="${5:-}"
 INTERVAL_SECONDS="${INTERVAL_SECONDS:-120}"
 MAX_CYCLES="${MAX_CYCLES:-0}"
 AUTO_DELIVER="${OPENCODE_AUTO_DELIVER:-0}"
+DELIVERY_MODE="${OPENCODE_DELIVERY_MODE:-final}"
 ONCE_SH="$(dirname "$0")/opencode-supervise-once.sh"
 SEND_SH="$(dirname "$0")/opencode-delivery-send.sh"
-STATE_DIR="${STATE_DIR:-$HOME/.openclaw/workspace/state/opencode-supervisor}"
-DELIVERY_HASH_FILE="$STATE_DIR/last-delivery-hash"
+
+derive_state_name() {
+  local proj="$1"
+  local sess="$2"
+  local safe_proj=$(printf '%s' "$proj" | tr '/' '_' | tr -d ' ')
+  local safe_sess=$(printf '%s' "$sess" | tr '/' '_' | tr -d ' ')
+  echo "delivery-hash-${safe_proj:-default}${safe_sess:+-$safe_sess}"
+}
+
+get_state_file() {
+  local key=$(derive_state_name "$PROJECT_DIR" "$SESSION_NAME")
+  echo "$STATE_DIR/$key"
+}
+
+DELIVERY_HASH_FILE=$(get_state_file)
+DELIVERY_LOCK_FILE="$STATE_DIR/delivery-lock"
+
+acquire_lock() {
+  local max_wait=30
+  local waited=0
+  while [ -f "$DELIVERY_LOCK_FILE" ]; do
+    if [ $waited -ge $max_wait ]; then
+      echo "[supervise-loop] ERROR: lock timeout, another delivery in progress"
+      return 1
+    fi
+    sleep 1
+    waited=$((waited+1))
+  done
+  echo $$ > "$DELIVERY_LOCK_FILE"
+}
+
+release_lock() {
+  rm -f "$DELIVERY_LOCK_FILE"
+}
+
+trap release_lock EXIT
 
 delivery_hash() {
   printf '%s' "$1" | python3 -c "import json,sys,hashlib; d=json.load(sys.stdin); h=hashlib.sha256(); key=d.get('existingArtifacts',[{}])[0].get('path','')+str(d.get('existingArtifacts',[{}])[0].get('size',0))+str(d.get('criteria',''))+(d.get('userSummary') or d.get('summary') or ''); h.update(key.encode()); print(h.hexdigest())"
@@ -37,10 +72,21 @@ save_delivery_hash() {
   printf '%s' "$1" > "$DELIVERY_HASH_FILE"
 }
 
+wrap_message_for_mode() {
+  local msg="$1"
+  if [ "$DELIVERY_MODE" = "test" ]; then
+    echo "[测试] $msg"
+  else
+    echo "$msg"
+  fi
+}
+
 if [ -z "$PROJECT_DIR" ]; then
   echo "Usage: $0 <project_dir> [session_name] [prompt_file] [state_dir] [criteria_file]" >&2
   exit 2
 fi
+
+echo "[supervise-loop] mode=$DELIVERY_MODE project=$PROJECT_DIR session=$SESSION_NAME"
 
 cycle=0
 while true; do
@@ -68,15 +114,20 @@ while true; do
     if [ -n "$DELIVERY_LINE" ]; then
       echo "[supervise-loop] delivery=$DELIVERY_LINE"
       if [ "$AUTO_DELIVER" = "1" ]; then
-        CURRENT_HASH=$(delivery_hash "$DELIVERY_LINE")
-        if is_delivery_duplicate "$CURRENT_HASH"; then
-          echo "[supervise-loop] already delivered, skip send"
+        if ! acquire_lock; then
+          echo "[supervise-loop] delivery skipped due to lock"
         else
-          SAVE_HASH="$CURRENT_HASH"
-          SEND_OUT=$(bash "$SEND_SH" "$DELIVERY_LINE" 2>&1) || true
-          echo "[supervise-loop] notify=$SEND_OUT"
-          if [ -n "$SAVE_HASH" ]; then
-            save_delivery_hash "$SAVE_HASH"
+          CURRENT_HASH=$(delivery_hash "$DELIVERY_LINE")
+          if is_delivery_duplicate "$CURRENT_HASH"; then
+            echo "[supervise-loop] already delivered, skip send"
+          else
+            SAVE_HASH="$CURRENT_HASH"
+            DELIVERY_LINE_MODED=$(wrap_message_for_mode "$DELIVERY_LINE")
+            SEND_OUT=$(bash "$SEND_SH" "$DELIVERY_LINE_MODED" 2>&1) || true
+            echo "[supervise-loop] notify=$SEND_OUT"
+            if [ -n "$SAVE_HASH" ]; then
+              save_delivery_hash "$SAVE_HASH"
+            fi
           fi
         fi
       fi

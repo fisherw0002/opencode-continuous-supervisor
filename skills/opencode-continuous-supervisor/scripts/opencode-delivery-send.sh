@@ -6,6 +6,7 @@ DELIVERY_JSON="${1:-}"
 CHANNEL="${OPENCODE_DELIVERY_CHANNEL:-telegram}"
 ACCOUNT="${OPENCODE_DELIVERY_ACCOUNT:-}"
 TARGET="${OPENCODE_DELIVERY_TARGET:-}"
+DELIVERY_KIND="${OPENCODE_DELIVERY_KIND:-summary}"
 
 if [ -z "$DELIVERY_JSON" ]; then
   echo '{"status":"error","error":"delivery json argument required"}'
@@ -29,14 +30,17 @@ print(d.get('userSummary') or d.get('summary') or '任务已完成。')
 PY
 )
 
-MEDIA=$(python3 - <<'PY' "$TMP_JSON"
+MEDIA=$(python3 -c "
 import json,sys
 p=sys.argv[1]
 d=json.load(open(p))
 arts=d.get('existingArtifacts') or []
-print(arts[0]['path'] if arts else '')
-PY
-)
+kind='$DELIVERY_KIND'
+if kind == 'artifact':
+    print(arts[0]['path'] if arts else '')
+else:
+    print('')
+" "$TMP_JSON")
 
 ALLOWED_MEDIA_DIRS=(
   "/root/.openclaw/media/outbound"
