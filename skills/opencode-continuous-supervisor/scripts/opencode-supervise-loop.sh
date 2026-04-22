@@ -13,6 +13,29 @@ MAX_CYCLES="${MAX_CYCLES:-0}"
 AUTO_DELIVER="${OPENCODE_AUTO_DELIVER:-0}"
 ONCE_SH="$(dirname "$0")/opencode-supervise-once.sh"
 SEND_SH="$(dirname "$0")/opencode-delivery-send.sh"
+STATE_DIR="${STATE_DIR:-$HOME/.openclaw/workspace/state/opencode-supervisor}"
+DELIVERY_HASH_FILE="$STATE_DIR/last-delivery-hash"
+
+delivery_hash() {
+  printf '%s' "$1" | python3 -c "import json,sys,hashlib; d=json.load(sys.stdin); h=hashlib.sha256(); key=d.get('existingArtifacts',[{}])[0].get('path','')+str(d.get('existingArtifacts',[{}])[0].get('size',0))+str(d.get('criteria',''))+(d.get('userSummary') or d.get('summary') or ''); h.update(key.encode()); print(h.hexdigest())"
+}
+
+is_delivery_duplicate() {
+  local current_hash="$1"
+  local last_hash=""
+  if [ -f "$DELIVERY_HASH_FILE" ]; then
+    last_hash=$(cat "$DELIVERY_HASH_FILE")
+  fi
+  if [ -n "$last_hash" ] && [ "$current_hash" = "$last_hash" ]; then
+    return 0
+  fi
+  return 1
+}
+
+save_delivery_hash() {
+  mkdir -p "$(dirname "$DELIVERY_HASH_FILE")"
+  printf '%s' "$1" > "$DELIVERY_HASH_FILE"
+}
 
 if [ -z "$PROJECT_DIR" ]; then
   echo "Usage: $0 <project_dir> [session_name] [prompt_file] [state_dir] [criteria_file]" >&2
@@ -45,8 +68,17 @@ while true; do
     if [ -n "$DELIVERY_LINE" ]; then
       echo "[supervise-loop] delivery=$DELIVERY_LINE"
       if [ "$AUTO_DELIVER" = "1" ]; then
-        SEND_OUT=$(bash "$SEND_SH" "$DELIVERY_LINE" 2>&1) || true
-        echo "[supervise-loop] notify=$SEND_OUT"
+        CURRENT_HASH=$(delivery_hash "$DELIVERY_LINE")
+        if is_delivery_duplicate "$CURRENT_HASH"; then
+          echo "[supervise-loop] already delivered, skip send"
+        else
+          SAVE_HASH="$CURRENT_HASH"
+          SEND_OUT=$(bash "$SEND_SH" "$DELIVERY_LINE" 2>&1) || true
+          echo "[supervise-loop] notify=$SEND_OUT"
+          if [ -n "$SAVE_HASH" ]; then
+            save_delivery_hash "$SAVE_HASH"
+          fi
+        fi
       fi
     else
       echo "[supervise-loop] WARNING: action=stop but no delivery line found"
