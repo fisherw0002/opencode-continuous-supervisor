@@ -38,8 +38,41 @@ print(arts[0]['path'] if arts else '')
 PY
 )
 
-if [ -n "$MEDIA" ] && [ -f "$MEDIA" ]; then
-  CMD=(openclaw message send --media "$MEDIA" --message "$MESSAGE" --channel "$CHANNEL" --account "$ACCOUNT" --target "$TARGET")
+ALLOWED_MEDIA_DIRS=(
+  "/root/.openclaw/media/outbound"
+  "/root/.openclaw/media/inbound"
+  "/root/.openclaw/media/tool-image-generation"
+)
+
+is_path_allowed() {
+  local path="$1"
+  for dir in "${ALLOWED_MEDIA_DIRS[@]}"; do
+    if [[ "$path" == "$dir"* ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+ensure_media_in_allowed_dir() {
+  local media_path="$1"
+  if [ -z "$media_path" ] || [ ! -f "$media_path" ]; then
+    echo "$media_path"
+    return
+  fi
+  if is_path_allowed "$media_path"; then
+    echo "$media_path"
+    return
+  fi
+  local filename=$(basename "$media_path")
+  local dest="/root/.openclaw/media/outbound/$filename"
+  cp "$media_path" "$dest"
+  echo "$dest"
+}
+MEDIA_PATH=$(ensure_media_in_allowed_dir "$MEDIA")
+
+if [ -n "$MEDIA_PATH" ] && [ -f "$MEDIA_PATH" ]; then
+  CMD=(openclaw message send --media "$MEDIA_PATH" --message "$MESSAGE" --channel "$CHANNEL" --account "$ACCOUNT" --target "$TARGET")
 else
   CMD=(openclaw message send --message "$MESSAGE" --channel "$CHANNEL" --account "$ACCOUNT" --target "$TARGET")
 fi
@@ -50,7 +83,7 @@ fi
   exit 4
 }
 
-python3 - <<'PY' "$TMP_JSON" "$MEDIA"
+python3 - <<'PY' "$TMP_JSON" "$MEDIA_PATH"
 import json,sys
 p=sys.argv[1]
 media=sys.argv[2]
