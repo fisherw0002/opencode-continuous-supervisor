@@ -10,7 +10,9 @@ STATE_DIR="${4:-$HOME/.openclaw/workspace/state/opencode-supervisor}"
 CRITERIA_FILE="${5:-}"
 INTERVAL_SECONDS="${INTERVAL_SECONDS:-120}"
 MAX_CYCLES="${MAX_CYCLES:-0}"
+AUTO_DELIVER="${OPENCODE_AUTO_DELIVER:-0}"
 ONCE_SH="$(dirname "$0")/opencode-supervise-once.sh"
+SEND_SH="$(dirname "$0")/opencode-delivery-send.sh"
 
 if [ -z "$PROJECT_DIR" ]; then
   echo "Usage: $0 <project_dir> [session_name] [prompt_file] [state_dir] [criteria_file]" >&2
@@ -42,6 +44,10 @@ while true; do
     DELIVERY_LINE=$(printf '%s' "$OUT" | grep '^delivery: ' | head -1 | sed 's/^delivery: //' || true)
     if [ -n "$DELIVERY_LINE" ]; then
       echo "[supervise-loop] delivery=$DELIVERY_LINE"
+      if [ "$AUTO_DELIVER" = "1" ]; then
+        SEND_OUT=$(bash "$SEND_SH" "$DELIVERY_LINE" 2>&1) || true
+        echo "[supervise-loop] notify=$SEND_OUT"
+      fi
     else
       echo "[supervise-loop] WARNING: action=stop but no delivery line found"
     fi

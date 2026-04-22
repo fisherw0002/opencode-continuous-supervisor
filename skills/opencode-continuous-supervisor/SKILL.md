@@ -134,6 +134,9 @@ This skill now includes a minimal runnable scaffold under `scripts/`:
   - runs a delivery-quality gate after base acceptance: artifact size/type checks, optional commands/text checks, and rework prompt generation
 - `scripts/opencode-delivery-report.py`
   - builds a delivery JSON when acceptance is met: artifact paths, command evidence, quality-gate result, summary, and user-facing summary
+- `scripts/opencode-delivery-send.sh`
+  - optional sender: dispatches the delivery result to the user through `openclaw message send`
+  - enabled from the loop with `OPENCODE_AUTO_DELIVER=1` and delivery target env vars
 - `scripts/opencode-supervise-once.sh`
   - runs watchdog + acceptance + unified decider; if action is reprompt/revive, sends prompt to the session
   - if action is stop, emits a parseable `delivery: {...}` line for the caller/controller
@@ -203,11 +206,29 @@ INTERVAL_SECONDS=120 MAX_CYCLES=30 \
 ## Files to create when implementing further
 
 A stronger implementation usually still needs:
-- optional direct notification/send layer (for example Telegram/OpenClaw message dispatch after delivery JSON is generated)
 - deeper task parsing (instead of best-effort raw task JSON snippet)
 - richer workflow-specific criteria beyond files/commands/text checks
 - stronger waiting-for-input vs healthy-thinking differentiation
 - optional human-in-the-loop quality review hooks for highly subjective deliverables
+
+## Optional automatic delivery send
+
+To make the supervisor proactively send the result after quality passes, enable:
+
+```bash
+OPENCODE_AUTO_DELIVER=1 \
+OPENCODE_DELIVERY_CHANNEL=telegram \
+OPENCODE_DELIVERY_ACCOUNT=opencodebot \
+OPENCODE_DELIVERY_TARGET=<chat_id> \
+INTERVAL_SECONDS=120 MAX_CYCLES=50 \
+  bash skills/opencode-continuous-supervisor/scripts/opencode-supervise-loop.sh \
+    /path/to/project my-session '' /tmp/opencode-state /path/to/criteria.json
+```
+
+When enabled, the loop will:
+1. stop only after acceptance + quality gate pass
+2. build `delivery: {...}`
+3. send the user summary (and first existing artifact when present) via `openclaw message send`
 
 ## If asked to implement further
 
