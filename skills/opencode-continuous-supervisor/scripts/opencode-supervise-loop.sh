@@ -39,6 +39,12 @@ while true; do
   echo "[supervise-loop] cycle=$cycle action=$ACTION"
 
   if [ "$ACTION" = "stop" ]; then
+    DELIVERY_LINE=$(printf '%s' "$OUT" | grep '^delivery: ' | head -1 | sed 's/^delivery: //' || true)
+    if [ -n "$DELIVERY_LINE" ]; then
+      echo "[supervise-loop] delivery=$DELIVERY_LINE"
+    else
+      echo "[supervise-loop] WARNING: action=stop but no delivery line found"
+    fi
     echo "[supervise-loop] acceptance met or stop requested; exiting"
     exit 0
   fi

@@ -68,6 +68,8 @@ print(json.dumps({
     "project_dir": str(PROJECT_DIR),
     "criteria": criteria.get("name", CRITERIA.name),
     "accepted": accepted,
+    "expectedRequiredFiles": criteria.get("requiredFiles", []),
+    "expectedArtifactFiles": criteria.get("artifactFiles", []),
     "missingRequiredFiles": missing_required,
     "missingArtifacts": missing_artifacts,
     "commands": command_results,

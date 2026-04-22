@@ -14,13 +14,15 @@ REGISTRY_PY="$(dirname "$0")/opencode-session-registry.py"
 ACCEPT_PY="$(dirname "$0")/opencode-acceptance-check.py"
 WATCH_PY="$(dirname "$0")/opencode-watchdog.py"
 DECIDE_PY="$(dirname "$0")/opencode-unified-decider.py"
+DELIVERY_PY="$(dirname "$0")/opencode-delivery-report.py"
 TMPDIR="${TMPDIR:-/tmp}"
 WATCH_FILE=$(mktemp "$TMPDIR/opencode-watch-XXXXXX.json")
 ACCEPT_FILE=$(mktemp "$TMPDIR/opencode-accept-XXXXXX.json")
 COMBINED_FILE=$(mktemp "$TMPDIR/opencode-combined-XXXXXX.json")
 DECISION_FILE=$(mktemp "$TMPDIR/opencode-decision-XXXXXX.json")
+DELIVERY_FILE=$(mktemp "$TMPDIR/opencode-delivery-XXXXXX.json")
 
-cleanup() { rm -f "$WATCH_FILE" "$ACCEPT_FILE" "$COMBINED_FILE" "$DECISION_FILE" 2>/dev/null; }
+cleanup() { rm -f "$WATCH_FILE" "$ACCEPT_FILE" "$COMBINED_FILE" "$DECISION_FILE" "$DELIVERY_FILE" 2>/dev/null; }
 trap cleanup EXIT
 
 if [ -z "$PROJECT_DIR" ]; then
@@ -64,6 +66,7 @@ rm -f "$MERGE_SCRIPT"
 
 # Print combined JSON to stdout (for callers that want it)
 cat "$COMBINED_FILE"
+printf '\n'
 
 # Run unified decider → write to decision file
 python3 "$DECIDE_PY" "$COMBINED_FILE" > "$DECISION_FILE"
@@ -78,9 +81,18 @@ REASON=$(python3 -c "import json; print(json.load(open('$DECISION_FILE')).get('r
 
 echo "[supervise-once] action=$ACTION reason=$REASON"
 
-# If stop or wait, do NOT send a prompt; just exit
-if [ "$ACTION" = "stop" ] || [ "$ACTION" = "wait" ]; then
-  echo "[supervise-once] action=$ACTION; no prompt sent"
+# Build delivery report on stop so callers can proactively report back to the user.
+if [ "$ACTION" = "stop" ]; then
+  python3 "$DELIVERY_PY" "$COMBINED_FILE" "$SESSION_NAME" > "$DELIVERY_FILE"
+  DELIVERY_COMPACT=$(python3 -c "import json; print(json.dumps(json.load(open('$DELIVERY_FILE')), ensure_ascii=False))")
+  echo "delivery: $DELIVERY_COMPACT"
+  echo "[supervise-once] action=stop; delivery report generated; no prompt sent"
+  exit 0
+fi
+
+# If wait, do NOT send a prompt; just exit
+if [ "$ACTION" = "wait" ]; then
+  echo "[supervise-once] action=wait; no prompt sent"
   exit 0
 fi
 

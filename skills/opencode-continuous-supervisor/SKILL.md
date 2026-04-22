@@ -130,8 +130,11 @@ This skill now includes a minimal runnable scaffold under `scripts/`:
 - `scripts/opencode-unified-decider.py`
   - takes combined watchdog+acceptance JSON; emits final action: stop | wait | reprompt | revive
   - decision matrix: acceptance→stop, dead→revive, stalled→reprompt, stale tasks→reprompt, else→wait
+- `scripts/opencode-delivery-report.py`
+  - builds a delivery JSON when acceptance is met: artifact paths, command evidence, summary, and user-facing summary
 - `scripts/opencode-supervise-once.sh`
   - runs watchdog + acceptance + unified decider; if action is reprompt/revive, sends prompt to the session
+  - if action is stop, emits a parseable `delivery: {...}` line for the caller/controller
   - auto-derives session name from the registry when omitted
 - `assets/default-continue-prompt.txt`
   - default continue/keep-working prompt
@@ -155,9 +158,13 @@ Layer 2: opencode-acceptance-check.py
 
 Layer 3: opencode-unified-decider.py
   → final action: stop | wait | reprompt | revive
+
+Layer 4: opencode-delivery-report.py
+  → delivery JSON for accepted jobs (artifacts + checks + userSummary)
 ```
 
 The decider is the single point of truth for what the supervisor does next.
+The delivery layer is the bridge from “accepted” to “ready to proactively report back”.
 
 ## Minimal usage
 
@@ -190,7 +197,7 @@ INTERVAL_SECONDS=120 MAX_CYCLES=30 \
 ## Files to create when implementing further
 
 A stronger implementation usually still needs:
-- optional notification/report layer
+- optional direct notification/send layer (for example Telegram/OpenClaw message dispatch after delivery JSON is generated)
 - deeper task parsing (instead of best-effort raw task JSON snippet)
 - richer workflow-specific criteria beyond files/commands/text checks
 - stronger waiting-for-input vs healthy-thinking differentiation
